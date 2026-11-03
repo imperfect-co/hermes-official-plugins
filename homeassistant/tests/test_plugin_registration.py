@@ -175,3 +175,29 @@ class TestToolRegistration:
         assert ha_tools._BLOCKED_DOMAINS == core._BLOCKED_DOMAINS
         assert ha_tools._ENTITY_ID_RE.pattern == core._ENTITY_ID_RE.pattern
         assert ha_tools._SERVICE_NAME_RE.pattern == core._SERVICE_NAME_RE.pattern
+
+
+class _CoreWithOptionalCtx(RecordingCtx):
+    """A core whose ``register_tool`` names ``optional`` (the classification argument)."""
+
+    def register_tool(self, *, name, toolset, schema, handler, check_fn=None, emoji="", optional=False):
+        self.tools.append({"name": name, "optional": optional})
+
+
+class _CoreWithoutOptionalCtx(RecordingCtx):
+    """An older core: explicit parameters, no ``optional``; passing it would raise TypeError."""
+
+    def register_tool(self, *, name, toolset, schema, handler, check_fn=None, emoji=""):
+        self.tools.append({"name": name})
+
+
+class TestOptionalClassification:
+    def test_all_four_tools_register_optional_when_the_core_supports_it(self):
+        ctx = _CoreWithOptionalCtx()
+        ha_tools.register_tools(ctx)
+        assert [(t["name"], t["optional"]) for t in ctx.tools] == [(n, True) for n in TOOL_NAMES]
+
+    def test_an_older_core_still_loads_all_four_tools(self):
+        ctx = _CoreWithoutOptionalCtx()
+        ha_tools.register_tools(ctx)
+        assert [t["name"] for t in ctx.tools] == TOOL_NAMES

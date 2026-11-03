@@ -10,6 +10,7 @@ the public plugin API (``register_tools(ctx)`` -> ``ctx.register_tool``) instead
 """
 
 import asyncio
+import inspect
 import json
 import logging
 import re
@@ -353,9 +354,24 @@ TOOLS = (
 )
 
 
+def _optional_tool_kwargs(ctx) -> Dict[str, Any]:
+    """``{"optional": True}`` when the running core's ``register_tool`` accepts it, else ``{}``.
+
+    The tools are an opt-in capability: until HASS_TOKEN is set their check is expected to answer
+    False, which a core with the argument logs at DEBUG instead of WARNING on every probe (the
+    classification these tools had while they were built into core). An older core is left
+    untouched, so the plugin keeps loading there.
+    """
+    try:
+        return {"optional": True} if "optional" in inspect.signature(ctx.register_tool).parameters else {}
+    except (TypeError, ValueError):
+        return {}
+
+
 def register_tools(ctx) -> None:
     """Register the four Home Assistant tools in the ``homeassistant`` toolset via the plugin API."""
+    optional = _optional_tool_kwargs(ctx)
     for schema, handler in TOOLS:
         ctx.register_tool(
             name=schema["name"], toolset=TOOLSET, schema=schema, handler=handler,
-            check_fn=_check_ha_available, emoji="🏠")
+            check_fn=_check_ha_available, emoji="🏠", **optional)
